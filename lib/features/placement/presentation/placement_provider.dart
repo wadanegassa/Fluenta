@@ -1,17 +1,20 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../core/utils/score_calculator.dart';
 
 class PlacementQuestion {
   final String id;
-  final String skill;
+  final String type; // "mcq", "writing", "speaking"
+  final String skill; // "grammar", "vocabulary", "writing", "speaking"
+  final String concept; // The "idea of the question" shown to the user
   final String text;
   final List<String> options;
   final String correctAnswer;
 
   PlacementQuestion({
     required this.id,
+    required this.type,
     required this.skill,
+    required this.concept,
     required this.text,
     required this.options,
     required this.correctAnswer,
@@ -19,65 +22,90 @@ class PlacementQuestion {
 
   factory PlacementQuestion.fromJson(Map<String, dynamic> json) {
     return PlacementQuestion(
-      id: json['id'],
-      skill: json['skill'],
-      text: json['text'],
-      options: List<String>.from(json['options']),
-      correctAnswer: json['correct_answer'],
+      id: json['id'] ?? '',
+      type: json['type'] ?? 'mcq',
+      skill: json['skill'] ?? 'grammar',
+      concept: json['concept'] ?? 'Grammar Practice',
+      text: json['text'] ?? '',
+      options: List<String>.from(json['options'] ?? []),
+      correctAnswer: json['correct_answer'] ?? '',
     );
   }
 }
 
 class PlacementAnswer {
   final String questionId;
-  final bool isCorrect;
-  final String? userAnswer;
-  final int difficulty;
+  final String type;
+  final String skill;
+  final String text;
+  final String correctAnswer;
+  final String userAnswer;
 
   PlacementAnswer({
     required this.questionId,
-    required this.isCorrect,
-    this.userAnswer,
-    required this.difficulty,
+    required this.type,
+    required this.skill,
+    required this.text,
+    required this.correctAnswer,
+    required this.userAnswer,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'question_id': questionId,
+      'type': type,
+      'skill': skill,
+      'text': text,
+      'correct_answer': correctAnswer,
+      'user_answer': userAnswer,
+    };
+  }
 }
 
 class PlacementState {
+  final List<PlacementQuestion> questions;
   final int currentQuestionIndex;
-  final int currentDifficulty; // 1-10, starts at 5
-  final String estimatedLevel;
   final List<PlacementAnswer> answers;
-  final PlacementQuestion? currentQuestion;
+  final String estimatedLevel;
+  final String feedback;
+  final int score;
   final bool isLoading;
   final bool isFinished;
+  final bool hasStarted;
 
   PlacementState({
+    this.questions = const [],
     this.currentQuestionIndex = 0,
-    this.currentDifficulty = 5,
-    this.estimatedLevel = 'A1',
     this.answers = const [],
-    this.currentQuestion,
+    this.estimatedLevel = 'A1',
+    this.feedback = '',
+    this.score = 0,
     this.isLoading = false,
     this.isFinished = false,
+    this.hasStarted = false,
   });
 
   PlacementState copyWith({
+    List<PlacementQuestion>? questions,
     int? currentQuestionIndex,
-    int? currentDifficulty,
-    String? estimatedLevel,
     List<PlacementAnswer>? answers,
-    PlacementQuestion? currentQuestion,
+    String? estimatedLevel,
+    String? feedback,
+    int? score,
     bool? isLoading,
     bool? isFinished,
+    bool? hasStarted,
   }) {
     return PlacementState(
+      questions: questions ?? this.questions,
       currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
-      currentDifficulty: currentDifficulty ?? this.currentDifficulty,
-      estimatedLevel: estimatedLevel ?? this.estimatedLevel,
       answers: answers ?? this.answers,
-      currentQuestion: currentQuestion ?? this.currentQuestion,
+      estimatedLevel: estimatedLevel ?? this.estimatedLevel,
+      feedback: feedback ?? this.feedback,
+      score: score ?? this.score,
       isLoading: isLoading ?? this.isLoading,
       isFinished: isFinished ?? this.isFinished,
+      hasStarted: hasStarted ?? this.hasStarted,
     );
   }
 }
@@ -87,26 +115,21 @@ final placementProvider = StateNotifierProvider<PlacementNotifier, PlacementStat
 });
 
 class PlacementNotifier extends StateNotifier<PlacementState> {
-  PlacementNotifier() : super(PlacementState()) {
-    _fetchNextQuestion();
-  }
+  PlacementNotifier() : super(PlacementState());
 
-  static const int totalQuestions = 15;
-
-  Future<void> _fetchNextQuestion() async {
-    state = state.copyWith(isLoading: true);
+  // Starts the test and fetches all questions in one swift request!
+  Future<void> startTest() async {
+    state = state.copyWith(isLoading: true, hasStarted: true);
     try {
       final response = await Supabase.instance.client.functions.invoke(
         'generate-placement-question',
-        body: {
-          'difficulty': state.currentDifficulty,
-          'excludedIds': state.answers.map((a) => a.questionId).toList(),
-        },
       );
 
-      final question = PlacementQuestion.fromJson(response.data);
+      final List<dynamic> list = response.data is List ? response.data : [response.data];
+      final questions = list.map((q) => PlacementQuestion.fromJson(q)).toList();
+
       state = state.copyWith(
-        currentQuestion: question,
+        questions: questions,
         isLoading: false,
       );
     } catch (e) {
@@ -114,61 +137,77 @@ class PlacementNotifier extends StateNotifier<PlacementState> {
     }
   }
 
-  void submitAnswer(String questionId, bool isCorrect, {String? userAnswer}) {
-    final newAnswers = [...state.answers, PlacementAnswer(
+  void submitAnswer(String questionId, String answerText) {
+    if (state.questions.isEmpty) return;
+
+    final currentQuestion = state.questions[state.currentQuestionIndex];
+    final answer = PlacementAnswer(
       questionId: questionId,
-      isCorrect: isCorrect,
-      userAnswer: userAnswer,
-      difficulty: state.currentDifficulty,
-    )];
-
-    int newDifficulty = state.currentDifficulty;
-    if (isCorrect) {
-      if (newDifficulty < 10) newDifficulty++;
-    } else {
-      if (newDifficulty > 1) newDifficulty--;
-    }
-
-    final newLevel = ScoreCalculator.levelFromDifficulty(newDifficulty);
-    final isFinished = state.currentQuestionIndex + 1 >= totalQuestions;
-
-    state = state.copyWith(
-      currentQuestionIndex: state.currentQuestionIndex + 1,
-      currentDifficulty: newDifficulty,
-      estimatedLevel: newLevel,
-      answers: newAnswers,
-      isFinished: isFinished,
+      type: currentQuestion.type,
+      skill: currentQuestion.skill,
+      text: currentQuestion.text,
+      correctAnswer: currentQuestion.correctAnswer,
+      userAnswer: answerText,
     );
 
-    if (isFinished) {
-      _saveResult();
+    final newAnswers = [...state.answers, answer];
+    final isLast = state.currentQuestionIndex + 1 >= state.questions.length;
+
+    if (isLast) {
+      state = state.copyWith(
+        answers: newAnswers,
+        isLoading: true,
+      );
+      _gradeAllAnswers(newAnswers);
     } else {
-      _fetchNextQuestion();
+      state = state.copyWith(
+        currentQuestionIndex: state.currentQuestionIndex + 1,
+        answers: newAnswers,
+      );
     }
   }
 
-  Future<void> _saveResult() async {
-    state = state.copyWith(isLoading: true);
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    
-    // Update profile level
-    await Supabase.instance.client.from('profiles').update({
-      'level': state.estimatedLevel,
-    }).eq('id', userId);
+  Future<void> _gradeAllAnswers(List<PlacementAnswer> allAnswers) async {
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'grade-placement-answer',
+        body: {
+          'answers': allAnswers.map((a) => a.toJson()).toList(),
+        },
+      );
 
-    // Save placement result
-    await Supabase.instance.client.from('placement_results').insert({
-      'user_id': userId,
-      'final_level': state.estimatedLevel,
-      'total_score': state.answers.where((a) => a.isCorrect).length,
-      'answers': state.answers.map((a) => {
-        'question_id': a.questionId,
-        'is_correct': a.isCorrect,
-        'user_answer': a.userAnswer,
-        'difficulty': a.difficulty,
-      }).toList(),
-    });
+      final result = response.data;
+      final finalLevel = result['estimated_level'] ?? 'A1';
+      final score = result['score'] ?? 0;
+      final feedback = result['feedback'] ?? 'Exam grading complete!';
 
-    state = state.copyWith(isLoading: false);
+      final userId = Supabase.instance.client.auth.currentUser!.id;
+      
+      // Update student profile level
+      await Supabase.instance.client.from('profiles').update({
+        'level': finalLevel,
+      }).eq('id', userId);
+
+      // Save placement exam result
+      await Supabase.instance.client.from('placement_results').insert({
+        'user_id': userId,
+        'final_level': finalLevel,
+        'total_score': score,
+        'answers': allAnswers.map((a) => a.toJson()).toList(),
+      });
+
+      state = state.copyWith(
+        estimatedLevel: finalLevel,
+        score: score,
+        feedback: feedback,
+        isFinished: true,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isFinished: true,
+        isLoading: false,
+      );
+    }
   }
 }
