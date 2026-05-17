@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../data/onboarding_provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
@@ -8,20 +10,16 @@ import '../../../shared/widgets/fluenta_button.dart';
 import '../../../shared/widgets/fluenta_text_field.dart';
 import '../../../shared/widgets/skill_chip.dart';
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
-  bool _showForm = false;
-
-  final _goalController = TextEditingController();
-  final _languageController = TextEditingController();
 
   final List<OnboardingData> _pages = [
     OnboardingData(
@@ -47,21 +45,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   void dispose() {
     _pageController.dispose();
-    _goalController.dispose();
-    _languageController.dispose();
     super.dispose();
   }
 
-  Future<void> _completeOnboarding() async {
-    final userId = Supabase.instance.client.auth.currentUser!.id;
-    await Supabase.instance.client.from('profiles').update({
-      'goal': _goalController.text.trim(),
-      'native_language': _languageController.text.trim(),
-    }).eq('id', userId);
-
-    if (mounted) {
-      context.go('/placement');
-    }
+  void _completeOnboarding() {
+    context.go('/signup');
   }
 
   @override
@@ -79,8 +67,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   itemCount: _pages.length,
                   itemBuilder: (context, index) {
                     final data = _pages[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 40),
+                    return SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -160,7 +148,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             curve: Curves.easeOut,
                           );
                         } else {
-                          setState(() => _showForm = true);
+                          _completeOnboarding();
                         }
                       },
                     ),
@@ -169,61 +157,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ],
           ),
-          if (_showForm)
-            _buildFormOverlay(),
         ],
-      ),
-    );
-  }
-
-  Widget _buildFormOverlay() {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutCubic,
-      color: Colors.black.withOpacity(0.4),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          padding: const EdgeInsets.all(AppDimensions.s32),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(
-              top: Radius.circular(AppDimensions.radiusXL),
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Tell us about yourself", style: AppTextStyles.h1),
-              const SizedBox(height: AppDimensions.s8),
-              Text(
-                "This helps Lex personalize your lessons.",
-                style: AppTextStyles.bodyMedium,
-              ),
-              const SizedBox(height: AppDimensions.s32),
-              FluentaTextField(
-                label: "What's your main goal?",
-                controller: _goalController,
-                hintText: "Job, Travel, Academic, General...",
-                prefixIcon: Icons.flag_outlined,
-              ),
-              const SizedBox(height: AppDimensions.s20),
-              FluentaTextField(
-                label: "What's your native language?",
-                controller: _languageController,
-                hintText: "Spanish, Arabic, Chinese...",
-                prefixIcon: Icons.translate,
-              ),
-              const SizedBox(height: AppDimensions.s40),
-              FluentaButton(
-                text: "Start My Assessment",
-                onPressed: _completeOnboarding,
-              ),
-              SizedBox(height: MediaQuery.of(context).viewInsets.bottom),
-            ],
-          ),
-        ),
       ),
     );
   }
