@@ -61,8 +61,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/placement/result',
         builder: (context, state) {
-          final level = state.extra as String? ?? 'A1';
-          return PlacementResultScreen(level: level);
+          final extra = state.extra as Map<String, String>?;
+          final level = extra?['level'] ?? 'A1';
+          final feedback = extra?['feedback'] ?? '';
+          return PlacementResultScreen(level: level, feedback: feedback);
         },
       ),
       ShellRoute(
