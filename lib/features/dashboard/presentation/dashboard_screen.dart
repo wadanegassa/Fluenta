@@ -8,6 +8,7 @@ import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/skill_chip.dart';
 import '../../../shared/models/profile.dart';
 import '../../profile/data/profile_provider.dart';
+import '../data/lessons_provider.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -21,7 +22,7 @@ class DashboardScreen extends ConsumerWidget {
       body: SafeArea(
         child: profileAsync.when(
           data: (p) {
-            final profile = p as Profile?;
+            final profile = p;
             if (profile == null) return const Center(child: Text("No profile found"));
             return _buildContent(context, profile);
           },
@@ -65,18 +66,21 @@ class DashboardScreen extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "$greeting, ${profile.fullName.split(' ')[0]}",
-              style: AppTextStyles.h1,
-            ),
-            Text(
-              "Ready for today's lesson?",
-              style: AppTextStyles.bodyMedium,
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "$greeting, ${profile.fullName.split(' ')[0]}",
+                style: AppTextStyles.h1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                "Ready for today's lesson?",
+                style: AppTextStyles.bodyMedium,
+              ),
+            ],
+          ),
         ),
         CircleAvatar(
           radius: 24,
@@ -130,67 +134,94 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildCurrentLessonCard(BuildContext context, dynamic profile) {
-    return GestureDetector(
-      onTap: () => context.push('/lesson/demo-id'),
-      child: Container(
-        padding: const EdgeInsets.all(AppDimensions.s24),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    profile.level,
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                  ),
+    return Consumer(
+      builder: (context, ref, child) {
+        final modulesAsync = ref.watch(modulesProvider(profile.level));
+        
+        return modulesAsync.when(
+          data: (modules) {
+            if (modules.isEmpty || modules[0].lessons.isEmpty) {
+              return const SizedBox();
+            }
+            final nextLesson = modules[0].lessons[0];
+            
+            return GestureDetector(
+              onTap: () => context.push('/lesson/${nextLesson.id}'),
+              child: Container(
+                padding: const EdgeInsets.all(AppDimensions.s24),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
+                  border: Border.all(color: AppColors.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Text("MODULE 1", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textTertiary)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text("Meeting New People", style: AppTextStyles.h1),
-            const SizedBox(height: 16),
-            const Row(
-              children: [
-                SkillChip(skill: 'reading'),
-                SizedBox(width: 4),
-                SkillChip(skill: 'listening'),
-                SizedBox(width: 4),
-                SkillChip(skill: 'writing'),
-              ],
-            ),
-            const SizedBox(height: 24),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(100),
-              child: const LinearProgressIndicator(
-                value: 0.3,
-                minHeight: 8,
-                backgroundColor: AppColors.surfaceWarm,
-                valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            profile.level,
+                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            modules[0].title.toUpperCase(),
+                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textTertiary),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Text(nextLesson.title, style: AppTextStyles.h1),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        SkillChip(skill: nextLesson.focusSkill ?? 'reading'),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            nextLesson.focusTopic,
+                            style: AppTextStyles.bodySmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(100),
+                      child: const LinearProgressIndicator(
+                        value: 0.1,
+                        minHeight: 8,
+                        backgroundColor: AppColors.surfaceWarm,
+                        valueColor: AlwaysStoppedAnimation(AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
-      ),
+            );
+          },
+          loading: () => LoadingShimmer.card(),
+          error: (_, __) => const SizedBox(),
+        );
+      },
     );
   }
 

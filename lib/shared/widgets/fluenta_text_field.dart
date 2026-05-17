@@ -4,7 +4,7 @@ import '../../core/theme/app_dimensions.dart';
 import '../../core/theme/app_text_styles.dart';
 
 class FluentaTextField extends StatelessWidget {
-  final String label;
+  final String? label;
   final String? hintText;
   final TextEditingController? controller;
   final bool isPassword;
@@ -15,7 +15,7 @@ class FluentaTextField extends StatelessWidget {
 
   const FluentaTextField({
     super.key,
-    required this.label,
+    this.label,
     this.hintText,
     this.controller,
     this.isPassword = false,
@@ -30,13 +30,16 @@ class FluentaTextField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: AppTextStyles.labelMedium.copyWith(
-            color: AppColors.textPrimary,
+        if (label != null) ...[
+          Text(
+            label!,
+            style: AppTextStyles.labelLarge.copyWith(
+              color: Colors.black87,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-        const SizedBox(height: AppDimensions.s8),
+          const SizedBox(height: 8),
+        ],
         TextFormField(
           controller: controller,
           obscureText: isPassword,

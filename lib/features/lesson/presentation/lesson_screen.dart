@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/fluenta_button.dart';
+import '../../../shared/widgets/ai_tutor_chat.dart';
 import 'lesson_notifier.dart';
 import 'widgets/reading_section.dart';
 import 'widgets/listening_section.dart';
@@ -37,7 +38,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      context.push('/lesson/\${widget.lessonId}/assessment');
+      context.push('/lesson/${widget.lessonId}/assessment');
     }
   }
 
@@ -76,7 +77,11 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
               physics: const NeverScrollableScrollPhysics(), // Force manual navigation
               children: [
                 ReadingSection(content: state.content!, lessonId: widget.lessonId),
-                ListeningSection(content: state.content!, lessonId: widget.lessonId),
+                ListeningSection(
+                  content: state.content!,
+                  lessonId: widget.lessonId,
+                  youtubeVideoId: state.youtubeVideoId,
+                ),
                 WritingSection(content: state.content!, lessonId: widget.lessonId),
                 SpeakingSection(content: state.content!, lessonId: widget.lessonId),
               ],
@@ -114,7 +119,7 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
                     child: isCompleted
                         ? const Icon(Icons.check, size: 14, color: Colors.white)
                         : Text(
-                            "\${index + 1}",
+                            "${index + 1}",
                             style: TextStyle(
                               color: isActive ? Colors.white : AppColors.textTertiary,
                               fontSize: 10,
@@ -170,19 +175,32 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            children: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
-              ),
-              Expanded(child: Center(child: Text("Lex AI Tutor Chat Coming Soon"))),
-            ],
+                Expanded(
+                  child: Consumer(
+                    builder: (context, ref, _) {
+                      final lessonState = ref.watch(lessonNotifierProvider(widget.lessonId));
+                      return AiTutorChat(
+                        level: lessonState.level ?? 'A1',
+                        lessonTopic: lessonState.topic ?? 'General English',
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

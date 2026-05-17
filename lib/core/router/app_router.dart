@@ -1,12 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/presentation/splash_screen.dart';
-import '../../features/auth/presentation/login_screen.dart';
-import '../../features/auth/presentation/signup_screen.dart';
+import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/onboarding/presentation/setup_screen.dart';
 import '../../features/placement/presentation/placement_screen.dart';
 import '../../features/placement/presentation/placement_result_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
@@ -15,7 +14,7 @@ import '../../features/community/presentation/community_screen.dart';
 import '../../features/community/presentation/chat_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/lesson/presentation/lesson_screen.dart';
-import '../../features/assessment/presentation/assessment_screen.dart';
+import '../../features/lesson/presentation/assessment_screen.dart';
 import '../../shared/widgets/main_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -23,7 +22,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/splash',
     redirect: (context, state) async {
       final session = Supabase.instance.client.auth.currentSession;
-      final loggingIn = state.uri.toString() == '/login' || state.uri.toString() == '/signup' || state.uri.toString() == '/splash';
+      final loggingIn = state.uri.toString() == '/login' || state.uri.toString() == '/signup' || state.uri.toString() == '/splash' || state.uri.toString() == '/onboarding';
 
       if (session == null) {
         if (loggingIn) return null;
@@ -41,15 +40,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/login',
-        builder: (context, state) => const LoginScreen(),
+        builder: (context, state) => const AuthScreen(isLoginInitial: true),
       ),
       GoRoute(
         path: '/signup',
-        builder: (context, state) => const SignUpScreen(),
+        builder: (context, state) => const AuthScreen(isLoginInitial: false),
       ),
       GoRoute(
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
+      ),
+      GoRoute(
+        path: '/setup',
+        builder: (context, state) => const SetupScreen(),
       ),
       GoRoute(
         path: '/placement',

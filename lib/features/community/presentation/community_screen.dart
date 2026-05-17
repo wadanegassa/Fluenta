@@ -69,7 +69,7 @@ class _RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/community/room/\${room.id}'),
+      onTap: () => context.push('/community/room/${room.id}'),
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(AppDimensions.s20),
@@ -99,9 +99,16 @@ class _RoomCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(room.name, style: AppTextStyles.h3),
+                      Expanded(
+                        child: Text(
+                          room.name,
+                          style: AppTextStyles.h3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Text(
-                        "\${room.memberCount} members",
+                        "${room.memberCount} members",
                         style: AppTextStyles.caption,
                       ),
                     ],

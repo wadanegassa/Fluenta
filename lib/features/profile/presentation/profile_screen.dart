@@ -9,6 +9,8 @@ import '../../../shared/widgets/skill_progress_bar.dart';
 import '../../../shared/models/profile.dart';
 import '../../auth/data/auth_provider.dart';
 import '../data/profile_provider.dart';
+import '../../dashboard/data/lessons_provider.dart';
+import '../../dashboard/data/progress_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -49,11 +51,13 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           const SizedBox(height: 24),
           _buildHeader(profile),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
+          _buildLevelProgressCard(context, ref, profile),
+          const SizedBox(height: 32),
           _buildStatsRow(profile),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
           _buildSkillProgress(profile),
-          const SizedBox(height: 40),
+          const SizedBox(height: 32),
           _buildActionList(context, ref),
           const SizedBox(height: 40),
         ],
@@ -135,6 +139,99 @@ class ProfileScreen extends ConsumerWidget {
           if (context.mounted) context.go('/login');
         }, color: AppColors.error),
       ],
+    );
+  }
+
+  Widget _buildLevelProgressCard(BuildContext context, WidgetRef ref, dynamic profile) {
+    final modulesAsync = ref.watch(modulesProvider(profile.level));
+    final progressAsync = ref.watch(userProgressProvider);
+
+    return modulesAsync.when(
+      data: (modules) {
+        return progressAsync.when(
+          data: (progressList) {
+            int totalLessons = 0;
+            int masteredInCurrentLevel = 0;
+
+            for (var m in modules) {
+              for (var l in m.lessons) {
+                totalLessons++;
+                if (progressList.any((p) => p.lessonId == l.id && p.isMastered)) {
+                  masteredInCurrentLevel++;
+                }
+              }
+            }
+
+            final progress = totalLessons > 0 ? masteredInCurrentLevel / totalLessons : 0.0;
+            final remaining = totalLessons - masteredInCurrentLevel;
+            
+            String nextLevel = 'Master';
+            const levels = ['A1', 'A2', 'B1', 'B2', 'C1'];
+            final idx = levels.indexOf(profile.level);
+            if (idx != -1 && idx < levels.length - 1) {
+              nextLevel = levels[idx + 1];
+            }
+
+            return Container(
+              padding: const EdgeInsets.all(AppDimensions.s24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [AppColors.primary, AppColors.primary.withOpacity(0.8)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(AppDimensions.radiusLarge),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "Road to $nextLevel",
+                        style: AppTextStyles.h3.copyWith(color: Colors.white),
+                      ),
+                      Text(
+                        "${(progress * 100).toInt()}%",
+                        style: AppTextStyles.h3.copyWith(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withOpacity(0.2),
+                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+                      minHeight: 10,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    remaining > 0 
+                        ? "Master $remaining more lessons to unlock level $nextLevel"
+                        : "You have mastered all lessons in this level!",
+                    style: AppTextStyles.bodyMedium.copyWith(color: Colors.white.withOpacity(0.9)),
+                  ),
+                ],
+              ),
+            );
+          },
+          loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
+          error: (_, __) => const SizedBox(),
+        );
+      },
+      loading: () => const SizedBox(height: 100, child: Center(child: CircularProgressIndicator())),
+      error: (_, __) => const SizedBox(),
     );
   }
 

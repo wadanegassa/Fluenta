@@ -102,22 +102,36 @@ class ReadingSection extends ConsumerWidget {
           if (q.type == 'mcq')
             ...q.options!.map((option) {
               final isSelected = userAnswer == option;
+              final isCorrect = option == q.answer;
+              
+              Color borderColor = AppColors.border;
+              Color bgColor = AppColors.surfaceWarm;
+              
+              if (isSelected) {
+                if (isCorrect) {
+                  borderColor = AppColors.success;
+                  bgColor = AppColors.success.withOpacity(0.1);
+                } else {
+                  borderColor = AppColors.error;
+                  bgColor = AppColors.error.withOpacity(0.1);
+                }
+              }
+
               return GestureDetector(
                 onTap: () => ref.read(lessonNotifierProvider(lessonId).notifier).saveAnswer(q.id, option),
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppColors.readingLight : AppColors.surfaceWarm,
+                    color: bgColor,
                     borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
-                    border: Border.all(
-                      color: isSelected ? AppColors.reading : AppColors.border,
-                    ),
+                    border: Border.all(color: borderColor, width: 2),
                   ),
                   child: Row(
                     children: [
                       Expanded(child: Text(option, style: AppTextStyles.bodyMedium)),
-                      if (isSelected) const Icon(Icons.check_circle, color: AppColors.reading),
+                      if (isSelected && isCorrect) const Icon(Icons.check_circle, color: AppColors.success),
+                      if (isSelected && !isCorrect) const Icon(Icons.cancel, color: AppColors.error),
                     ],
                   ),
                 ),
@@ -150,7 +164,7 @@ class ReadingSection extends ConsumerWidget {
             const SizedBox(height: 24),
             Text("EXAMPLE", style: AppTextStyles.caption),
             const SizedBox(height: 4),
-            Text('"\${item.example}"', style: AppTextStyles.bodyMedium.copyWith(fontStyle: FontStyle.italic)),
+            Text('"${item.example}"', style: AppTextStyles.bodyMedium.copyWith(fontStyle: FontStyle.italic)),
             const SizedBox(height: 32),
           ],
         ),
