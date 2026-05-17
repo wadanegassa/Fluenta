@@ -30,8 +30,67 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     super.dispose();
   }
 
+  bool _canProceed(int currentSection) {
+    final state = ref.read(lessonNotifierProvider(widget.lessonId));
+    if (state.content == null) return false;
+    final content = state.content!;
+    final answers = state.answers;
+
+    switch (currentSection) {
+      case 0: // Reading Section
+        for (var q in content.readingQuestions) {
+          final answer = answers[q.id]?.toString().trim() ?? '';
+          if (answer.isEmpty) return false;
+        }
+        return true;
+
+      case 1: // Listening Section
+        final summary = answers['listening_summary']?.toString().trim() ?? '';
+        if (summary.isEmpty) return false;
+        for (var q in content.listeningExercises) {
+          final answer = answers[q.id]?.toString().trim() ?? '';
+          if (answer.isEmpty) return false;
+        }
+        return true;
+
+      case 2: // Writing Section
+        final writing = answers['writing_submission']?.toString().trim() ?? '';
+        return writing.isNotEmpty;
+
+      case 3: // Speaking Section
+        final speaking = answers['speaking_submission']?.toString().trim() ?? '';
+        return speaking.isNotEmpty;
+
+      default:
+        return false;
+    }
+  }
+
   void _nextSection() {
     final currentSection = ref.read(lessonNotifierProvider(widget.lessonId)).currentSection;
+    
+    if (!_canProceed(currentSection)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.lock_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "🔒 Section Locked! Please complete all exercises in this section to unlock the next course step.",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     if (currentSection < 3) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),

@@ -7,7 +7,7 @@ import '../../../../shared/models/lesson_content.dart';
 import '../../../../shared/widgets/skill_chip.dart';
 import '../lesson_notifier.dart';
 
-class SpeakingSection extends StatefulWidget {
+class SpeakingSection extends ConsumerStatefulWidget {
   final LessonContent content;
   final String lessonId;
 
@@ -18,10 +18,10 @@ class SpeakingSection extends StatefulWidget {
   });
 
   @override
-  State<SpeakingSection> createState() => _SpeakingSectionState();
+  ConsumerState<SpeakingSection> createState() => _SpeakingSectionState();
 }
 
-class _SpeakingSectionState extends State<SpeakingSection> with SingleTickerProviderStateMixin {
+class _SpeakingSectionState extends ConsumerState<SpeakingSection> with SingleTickerProviderStateMixin {
   bool _isRecording = false;
   late AnimationController _pulseController;
 
@@ -42,6 +42,9 @@ class _SpeakingSectionState extends State<SpeakingSection> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(lessonNotifierProvider(widget.lessonId));
+    final hasSpeech = state.answers['speaking_submission'] != null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppDimensions.s24),
       child: Column(
@@ -52,17 +55,44 @@ class _SpeakingSectionState extends State<SpeakingSection> with SingleTickerProv
           Text("Speaking Exercise", style: AppTextStyles.h1),
           const SizedBox(height: 24),
           _buildPromptCard(),
-          const SizedBox(height: 64),
-          Center(child: _buildRecordButton()),
+          const SizedBox(height: 48),
+          Center(child: _buildRecordButton(ref)),
           const SizedBox(height: 24),
           Center(
             child: Text(
-              _isRecording ? "Recording... tap to stop" : "Tap to record your response",
+              _isRecording 
+                  ? "Recording... tap to stop" 
+                  : (hasSpeech ? "Speech recorded! Tap mic to re-record" : "Tap to record your spoken response"),
               style: AppTextStyles.bodyMedium.copyWith(
                 color: _isRecording ? AppColors.error : AppColors.textSecondary,
+                fontWeight: hasSpeech ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           ),
+          if (hasSpeech && !_isRecording) ...[
+            const SizedBox(height: 16),
+            Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(100),
+                  border: Border.all(color: AppColors.success.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.check_circle, color: AppColors.success, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      "Audio file saved successfully",
+                      style: AppTextStyles.labelMedium.copyWith(color: AppColors.success),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 40),
         ],
       ),
@@ -86,9 +116,20 @@ class _SpeakingSectionState extends State<SpeakingSection> with SingleTickerProv
     );
   }
 
-  Widget _buildRecordButton() {
+  Widget _buildRecordButton(WidgetRef ref) {
     return GestureDetector(
-      onTap: () => setState(() => _isRecording = !_isRecording),
+      onTap: () {
+        setState(() {
+          _isRecording = !_isRecording;
+          if (!_isRecording) {
+            // Save speaker mock audio answer
+            ref.read(lessonNotifierProvider(widget.lessonId).notifier).saveAnswer(
+              'speaking_submission',
+              'Simulated oral practice response recorded by the student for prompt: ${widget.content.speakingPrompt}'
+            );
+          }
+        });
+      },
       child: Stack(
         alignment: Alignment.center,
         children: [
