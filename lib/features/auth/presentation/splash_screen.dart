@@ -27,20 +27,21 @@ class _SplashScreenState extends State<SplashScreen> {
       final userId = session.user.id;
       final profile = await Supabase.instance.client
           .from('profiles')
-          .select('level')
+          .select('level, goal, native_language')
           .eq('id', userId)
           .maybeSingle();
 
       if (profile == null) {
-        // If profile doesn't exist, go to onboarding/signup flow
         context.go('/onboarding');
+      } else if (profile['goal'] == null || profile['native_language'] == null) {
+        context.go('/setup');
       } else if (profile['level'] == 'unassigned') {
         context.go('/placement');
       } else {
         context.go('/home');
       }
     } else {
-      context.go('/login');
+      context.go('/onboarding');
     }
   }
 
