@@ -7,6 +7,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/models/lesson_content.dart';
 import '../../../../shared/widgets/skill_chip.dart';
+import '../../../../shared/widgets/ai_audio_companion.dart';
 import '../lesson_notifier.dart';
 
 class ListeningSection extends StatelessWidget {
@@ -57,6 +58,11 @@ class _ListeningContent extends ConsumerWidget {
           Text("Listening Practice", style: AppTextStyles.h1),
           const SizedBox(height: 24),
           _buildVideoPlayer(context),
+          const SizedBox(height: 32),
+          AiAudioCompanion(
+            textToSpeak: content.listeningTranscript,
+            title: "AI Audio Guide",
+          ),
           const SizedBox(height: 32),
           _buildTranscriptCard(),
           const SizedBox(height: 32),

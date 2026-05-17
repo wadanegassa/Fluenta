@@ -5,6 +5,7 @@ import '../../../../core/theme/app_dimensions.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../shared/models/lesson_content.dart';
 import '../../../../shared/widgets/skill_chip.dart';
+import '../../../../shared/widgets/ai_audio_companion.dart';
 import '../lesson_notifier.dart';
 
 class ReadingSection extends ConsumerWidget {
@@ -29,6 +30,11 @@ class ReadingSection extends ConsumerWidget {
           Text("Today's Reading", style: AppTextStyles.h1),
           const SizedBox(height: 24),
           _buildVocabularyPreview(context),
+          const SizedBox(height: 32),
+          AiAudioCompanion(
+            textToSpeak: content.readingPassage,
+            title: "Lesson Audio Guide",
+          ),
           const SizedBox(height: 32),
           _buildPassageCard(),
           const SizedBox(height: 32),
