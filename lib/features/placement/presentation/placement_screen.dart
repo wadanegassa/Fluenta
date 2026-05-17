@@ -24,8 +24,23 @@ class PlacementScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    // Mock questions for demonstration
-    final currentQuestion = _mockQuestions[state.currentQuestionIndex % _mockQuestions.length];
+    if (state.isLoading || state.currentQuestion == null) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text("Preparing your next challenge...", style: AppTextStyles.bodyMedium),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final currentQuestion = state.currentQuestion!;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -52,26 +67,28 @@ class PlacementScreen extends ConsumerWidget {
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(AppDimensions.s24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SkillChip(skill: currentQuestion.skill),
-                LevelBadge(level: state.estimatedLevel),
-              ],
-            ),
-            const SizedBox(height: AppDimensions.s32),
-            Text(
-              currentQuestion.text,
-              style: AppTextStyles.display2,
-            ),
-            const SizedBox(height: AppDimensions.s48),
-            Expanded(
-              child: ListView.separated(
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(AppDimensions.s24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  SkillChip(skill: currentQuestion.skill),
+                  LevelBadge(level: state.estimatedLevel),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.s32),
+              Text(
+                currentQuestion.text,
+                style: AppTextStyles.display2,
+              ),
+              const SizedBox(height: AppDimensions.s48),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 itemCount: currentQuestion.options.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 16),
                 itemBuilder: (context, index) {
@@ -86,8 +103,8 @@ class PlacementScreen extends ConsumerWidget {
                   );
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -144,48 +161,3 @@ class _OptionCardState extends State<_OptionCard> {
     );
   }
 }
-
-class _MockQuestion {
-  final String id;
-  final String skill;
-  final String text;
-  final List<String> options;
-  final String correctAnswer;
-
-  _MockQuestion({
-    required this.id,
-    required this.skill,
-    required this.text,
-    required this.options,
-    required this.correctAnswer,
-  });
-}
-
-final _mockQuestions = [
-  _MockQuestion(
-    id: 'q1',
-    skill: 'reading',
-    text: "Choose the correct sentence:",
-    options: [
-      "I goes to school every day.",
-      "I go to school every day.",
-      "I going to school every day.",
-      "I gone to school every day."
-    ],
-    correctAnswer: "I go to school every day.",
-  ),
-  _MockQuestion(
-    id: 'q2',
-    skill: 'listening',
-    text: "Which word rhymes with 'tree'?",
-    options: ["Free", "Tray", "Try", "True"],
-    correctAnswer: "Free",
-  ),
-  _MockQuestion(
-    id: 'q3',
-    skill: 'writing',
-    text: "Select the correctly spelled word:",
-    options: ["Accommodate", "Acomodate", "Accomodate", "Acommodate"],
-    correctAnswer: "Accommodate",
-  ),
-];

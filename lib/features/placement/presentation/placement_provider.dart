@@ -2,6 +2,32 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/score_calculator.dart';
 
+class PlacementQuestion {
+  final String id;
+  final String skill;
+  final String text;
+  final List<String> options;
+  final String correctAnswer;
+
+  PlacementQuestion({
+    required this.id,
+    required this.skill,
+    required this.text,
+    required this.options,
+    required this.correctAnswer,
+  });
+
+  factory PlacementQuestion.fromJson(Map<String, dynamic> json) {
+    return PlacementQuestion(
+      id: json['id'],
+      skill: json['skill'],
+      text: json['text'],
+      options: List<String>.from(json['options']),
+      correctAnswer: json['correct_answer'],
+    );
+  }
+}
+
 class PlacementAnswer {
   final String questionId;
   final bool isCorrect;
@@ -21,6 +47,7 @@ class PlacementState {
   final int currentDifficulty; // 1-10, starts at 5
   final String estimatedLevel;
   final List<PlacementAnswer> answers;
+  final PlacementQuestion? currentQuestion;
   final bool isLoading;
   final bool isFinished;
 
@@ -29,6 +56,7 @@ class PlacementState {
     this.currentDifficulty = 5,
     this.estimatedLevel = 'A1',
     this.answers = const [],
+    this.currentQuestion,
     this.isLoading = false,
     this.isFinished = false,
   });
@@ -38,6 +66,7 @@ class PlacementState {
     int? currentDifficulty,
     String? estimatedLevel,
     List<PlacementAnswer>? answers,
+    PlacementQuestion? currentQuestion,
     bool? isLoading,
     bool? isFinished,
   }) {
@@ -46,6 +75,7 @@ class PlacementState {
       currentDifficulty: currentDifficulty ?? this.currentDifficulty,
       estimatedLevel: estimatedLevel ?? this.estimatedLevel,
       answers: answers ?? this.answers,
+      currentQuestion: currentQuestion ?? this.currentQuestion,
       isLoading: isLoading ?? this.isLoading,
       isFinished: isFinished ?? this.isFinished,
     );
@@ -57,9 +87,32 @@ final placementProvider = StateNotifierProvider<PlacementNotifier, PlacementStat
 });
 
 class PlacementNotifier extends StateNotifier<PlacementState> {
-  PlacementNotifier() : super(PlacementState());
+  PlacementNotifier() : super(PlacementState()) {
+    _fetchNextQuestion();
+  }
 
   static const int totalQuestions = 15;
+
+  Future<void> _fetchNextQuestion() async {
+    state = state.copyWith(isLoading: true);
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'generate-placement-question',
+        body: {
+          'difficulty': state.currentDifficulty,
+          'excludedIds': state.answers.map((a) => a.questionId).toList(),
+        },
+      );
+
+      final question = PlacementQuestion.fromJson(response.data);
+      state = state.copyWith(
+        currentQuestion: question,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false);
+    }
+  }
 
   void submitAnswer(String questionId, bool isCorrect, {String? userAnswer}) {
     final newAnswers = [...state.answers, PlacementAnswer(
@@ -89,6 +142,8 @@ class PlacementNotifier extends StateNotifier<PlacementState> {
 
     if (isFinished) {
       _saveResult();
+    } else {
+      _fetchNextQuestion();
     }
   }
 
