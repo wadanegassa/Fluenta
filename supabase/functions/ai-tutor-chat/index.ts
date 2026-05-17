@@ -6,7 +6,12 @@ serve(async (req) => {
 
   const systemContext = `You are Lex, a friendly English tutor inside the Fluenta app.
 The student is at ${level} level. Current lesson topic: "${lessonTopic}".
-Rules: Keep responses short (3-5 sentences max). Always give a real example when explaining. Be encouraging. Use simple, clear language. Never be condescending.`
+Rules:
+- Keep responses short (3-5 sentences max).
+- NEVER give the exact answer or solution directly.
+- GUIDE the student by asking helpful questions or providing clues.
+- Show them the DIRECTION of where to find the answer (e.g., "Look at the grammar section about past tenses again").
+- Be encouraging and use simple, clear language.`
 
   const conversationHistory = messages.map((m: any) => ({
     role: m.role,
@@ -14,7 +19,7 @@ Rules: Keep responses short (3-5 sentences max). Always give a real example when
   }))
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
