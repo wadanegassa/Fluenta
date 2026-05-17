@@ -1,15 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/lesson_content.dart';
 
 class LessonState {
   final int currentSection; // 0: Reading, 1: Listening, 2: Writing, 3: Speaking
   final LessonContent? content;
+  final String? youtubeVideoId;
+  final String? level;
+  final String? topic;
   final bool isLoading;
   final Map<String, dynamic> answers;
 
   LessonState({
     this.currentSection = 0,
     this.content,
+    this.youtubeVideoId,
+    this.level,
+    this.topic,
     this.isLoading = false,
     this.answers = const {},
   });
@@ -17,12 +24,18 @@ class LessonState {
   LessonState copyWith({
     int? currentSection,
     LessonContent? content,
+    String? youtubeVideoId,
+    String? level,
+    String? topic,
     bool? isLoading,
     Map<String, dynamic>? answers,
   }) {
     return LessonState(
       currentSection: currentSection ?? this.currentSection,
       content: content ?? this.content,
+      youtubeVideoId: youtubeVideoId ?? this.youtubeVideoId,
+      level: level ?? this.level,
+      topic: topic ?? this.topic,
       isLoading: isLoading ?? this.isLoading,
       answers: answers ?? this.answers,
     );
@@ -43,32 +56,76 @@ class LessonNotifier extends StateNotifier<LessonState> {
   Future<void> _loadContent() async {
     state = state.copyWith(isLoading: true);
     
-    // In a real app, fetch from Supabase or generate via Edge Function
-    // Mocking content for now
-    await Future.delayed(const Duration(seconds: 1));
-    
-    final mockContent = LessonContent(
-      grammarExplanation: "The Present Simple is used to talk about facts, habits, and routines. For example: 'I drink coffee every morning.' To form the negative, use 'do not' or 'does not'. Remember to add '-s' to the verb for he/she/it.",
-      readingPassage: "My name is Sarah and I live in London. Every morning, I wake up at 7 AM. I usually have tea and toast for breakfast. After that, I take the bus to my office. I work as a graphic designer. I love my job because it is very creative. In the evening, I sometimes meet my friends at a local cafe. We talk about our day and enjoy the atmosphere.",
-      listeningTranscript: "Alex: Hi Sarah, what do you usually do on weekends?\nSarah: Well, I usually go to the park on Saturdays. I like jogging in the morning. Then, I visit my parents for lunch.\nAlex: That sounds nice. Do you go out in the evening?\nSarah: Sometimes. I occasionally go to the cinema if there's a good movie.",
-      writingPrompt: "Write 3-4 sentences about your typical morning routine. Use the Present Simple tense.",
-      speakingPrompt: "Tell me about your favorite hobby and why you enjoy it. Speak for about 30-45 seconds.",
-      vocabularyList: [
-        VocabularyItem(word: 'Routine', definition: 'A sequence of actions regularly followed.', example: 'My morning routine starts with yoga.'),
-        VocabularyItem(word: 'Creative', definition: 'Involving the use of the imagination or original ideas.', example: 'She has a very creative mind.'),
-        VocabularyItem(word: 'Atmosphere', definition: 'The pervading tone or mood of a place.', example: 'The cafe has a cozy atmosphere.'),
-      ],
-      readingQuestions: [
-        ReadingQuestion(id: 'r1', question: "Where does Sarah live?", type: 'mcq', options: ["Paris", "London", "New York", "Berlin"], answer: "London"),
-        ReadingQuestion(id: 'r2', question: "What does she have for breakfast?", type: 'mcq', options: ["Coffee and eggs", "Tea and toast", "Cereal", "Fruit"], answer: "Tea and toast"),
-      ],
-      listeningExercises: [
-        ListeningExercise(id: 'l1', sentenceWithBlank: "Sarah usually goes to the _____ on Saturdays.", answer: "park"),
-        ListeningExercise(id: 'l2', sentenceWithBlank: "She likes _____ in the morning.", answer: "jogging"),
-      ],
-    );
+    final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser!.id;
 
-    state = state.copyWith(content: mockContent, isLoading: false);
+    try {
+      // 1. Fetch lesson details to provide context to AI (and ensure videoId is always loaded)
+      final lessonData = await supabase
+          .from('lessons')
+          .select('*, modules(level_id)')
+          .eq('id', lessonId)
+          .single();
+
+      final level = lessonData['modules']['level_id'];
+      final topic = lessonData['focus_topic'];
+      final focusSkill = lessonData['focus_skill'];
+      final videoId = lessonData['youtube_video_id'];
+      final videoTitle = lessonData['youtube_video_title'];
+
+      // Update state with details early
+      state = state.copyWith(
+        youtubeVideoId: videoId,
+        level: level,
+        topic: topic,
+      );
+
+      // 2. Try to fetch existing content
+      final existingContent = await supabase
+          .from('lesson_content')
+          .select()
+          .eq('lesson_id', lessonId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+      if (existingContent != null) {
+        state = state.copyWith(
+          content: LessonContent.fromJson(existingContent),
+          isLoading: false,
+        );
+        return;
+      }
+
+      // 3. Generate content via AI
+      final response = await supabase.functions.invoke('generate-lesson', body: {
+        'level': level,
+        'topic': topic,
+        'focusSkill': focusSkill,
+        'youtubeVideoTitle': videoTitle,
+      });
+
+      final generatedJson = response.data;
+      
+      if (generatedJson == null || generatedJson['error'] != null) {
+        throw Exception(generatedJson?['error'] ?? 'No content returned from AI');
+      }
+      
+      // 4. Save generated content
+      await supabase.from('lesson_content').insert({
+        'lesson_id': lessonId,
+        'user_id': userId,
+        ...generatedJson,
+      });
+
+      state = state.copyWith(
+        content: LessonContent.fromJson(generatedJson),
+        isLoading: false,
+      );
+    } catch (e, stack) {
+      print('DEBUG: Lesson load error: $e');
+      print('DEBUG: Stack trace: $stack');
+      state = state.copyWith(isLoading: false);
+    }
   }
 
   void setSection(int section) {
