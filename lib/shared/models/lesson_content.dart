@@ -122,28 +122,28 @@ class ReadingQuestion {
 
 class ListeningExercise {
   final String id;
-  final String sentenceWithBlank;
-  final String answer;
+  final String question;
+  final String modelAnswer;
 
   ListeningExercise({
     required this.id,
-    required this.sentenceWithBlank,
-    required this.answer,
+    required this.question,
+    required this.modelAnswer,
   });
 
   factory ListeningExercise.fromJson(Map<String, dynamic> json) {
     return ListeningExercise(
       id: json['id'] ?? '',
-      sentenceWithBlank: json['sentence_with_blank'] ?? '',
-      answer: json['answer'] ?? '',
+      question: json['question'] ?? '',
+      modelAnswer: json['model_answer'] ?? '',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'sentence_with_blank': sentenceWithBlank,
-      'answer': answer,
+      'question': question,
+      'model_answer': modelAnswer,
     };
   }
 }
