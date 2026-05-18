@@ -22,9 +22,9 @@ Create a complete, engaging lesson. Return ONLY a JSON object with NO markdown, 
   ],
   "reading_passage": "An engaging 150-200 word passage using the grammar and vocabulary. Make it feel like something real — a blog post, a story, a letter, not a textbook.",
   "reading_questions": [
-    {"id": "r1", "question": "", "type": "mcq", "options": ["", "", "", ""], "answer": ""},
-    {"id": "r2", "question": "", "type": "mcq", "options": ["", "", "", ""], "answer": ""},
-    {"id": "r3", "question": "", "type": "open_ended", "answer_key": ""}
+    {"id": "r1", "question": "Grammar or vocabulary MCQ based on the reading passage context", "type": "mcq", "options": ["", "", "", ""], "answer": "Must match one of the options EXACTLY"},
+    {"id": "r2", "question": "Comprehension MCQ based on the reading passage context", "type": "mcq", "options": ["", "", "", ""], "answer": "Must match one of the options EXACTLY"},
+    {"id": "r3", "question": "Detailed inference MCQ based on the reading passage context", "type": "mcq", "options": ["", "", "", ""], "answer": "Must match one of the options EXACTLY"}
   ],
   "listening_transcript": "A realistic 100-120 word conversation or monologue that matches the theme of the specified YouTube video. Make it sound like real speech, not a script.",
   "listening_exercises": [
