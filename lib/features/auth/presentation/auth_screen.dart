@@ -109,7 +109,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                         child: Padding(
                           padding: const EdgeInsets.only(top: 40),
                           child: Text(
-                            'Fluenta',
+                            'Voce',
                             style: GoogleFonts.playfairDisplay(
                               color: Colors.white,
                               fontSize: 42,
