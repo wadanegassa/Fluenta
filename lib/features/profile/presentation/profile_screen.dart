@@ -28,7 +28,7 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {},
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),
@@ -131,9 +131,9 @@ class ProfileScreen extends ConsumerWidget {
   Widget _buildActionList(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
-        _buildActionTile(Icons.edit_outlined, "Edit Profile", () {}),
-        _buildActionTile(Icons.notifications_none, "Notification Settings", () {}),
-        _buildActionTile(Icons.language, "Language Preferences", () {}),
+        _buildActionTile(Icons.edit_outlined, "Edit Profile", () => context.push('/settings')),
+        _buildActionTile(Icons.notifications_none, "Notification Settings", () => context.push('/settings')),
+        _buildActionTile(Icons.language, "Language Preferences", () => context.push('/settings')),
         _buildActionTile(Icons.logout, "Sign Out", () async {
           await ref.read(authNotifierProvider.notifier).signOut();
           if (context.mounted) context.go('/login');
