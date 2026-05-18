@@ -13,6 +13,7 @@ import '../../features/dashboard/presentation/lessons_screen.dart';
 import '../../features/community/presentation/community_screen.dart';
 import '../../features/community/presentation/chat_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
+import '../../features/profile/presentation/settings_screen.dart';
 import '../../features/lesson/presentation/lesson_screen.dart';
 import '../../features/lesson/presentation/assessment_screen.dart';
 import '../../shared/widgets/main_shell.dart';
@@ -106,8 +107,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/community/room/:id',
         builder: (context, state) {
           final id = state.pathParameters['id']!;
-          return ChatScreen(roomId: id);
+          final isGroup = state.uri.queryParameters['isGroup'] != 'false';
+          return ChatScreen(roomId: id, isGroup: isGroup);
         },
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
       ),
     ],
   );
