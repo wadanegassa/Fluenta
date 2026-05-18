@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../profile/data/profile_provider.dart';
 
 class PlacementQuestion {
   final String id;
@@ -22,13 +23,13 @@ class PlacementQuestion {
 
   factory PlacementQuestion.fromJson(Map<String, dynamic> json) {
     return PlacementQuestion(
-      id: json['id'] ?? '',
-      type: json['type'] ?? 'mcq',
-      skill: json['skill'] ?? 'grammar',
-      concept: json['concept'] ?? 'Grammar Practice',
-      text: json['text'] ?? '',
+      id: json['id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'mcq',
+      skill: json['skill']?.toString() ?? 'grammar',
+      concept: json['concept']?.toString() ?? 'Grammar Practice',
+      text: json['text']?.toString() ?? '',
       options: List<String>.from(json['options'] ?? []),
-      correctAnswer: json['correct_answer'] ?? '',
+      correctAnswer: json['correctAnswer']?.toString() ?? '',
     );
   }
 }
@@ -52,12 +53,12 @@ class PlacementAnswer {
 
   Map<String, dynamic> toJson() {
     return {
-      'question_id': questionId,
+      'questionId': questionId,
       'type': type,
       'skill': skill,
       'text': text,
-      'correct_answer': correctAnswer,
-      'user_answer': userAnswer,
+      'correctAnswer': correctAnswer,
+      'userAnswer': userAnswer,
     };
   }
 }
@@ -67,8 +68,8 @@ class PlacementState {
   final int currentQuestionIndex;
   final List<PlacementAnswer> answers;
   final String estimatedLevel;
-  final String feedback;
   final int score;
+  final String feedback;
   final bool isLoading;
   final bool isFinished;
   final bool hasStarted;
@@ -78,8 +79,8 @@ class PlacementState {
     this.currentQuestionIndex = 0,
     this.answers = const [],
     this.estimatedLevel = 'A1',
-    this.feedback = '',
     this.score = 0,
+    this.feedback = '',
     this.isLoading = false,
     this.isFinished = false,
     this.hasStarted = false,
@@ -90,8 +91,8 @@ class PlacementState {
     int? currentQuestionIndex,
     List<PlacementAnswer>? answers,
     String? estimatedLevel,
-    String? feedback,
     int? score,
+    String? feedback,
     bool? isLoading,
     bool? isFinished,
     bool? hasStarted,
@@ -101,8 +102,8 @@ class PlacementState {
       currentQuestionIndex: currentQuestionIndex ?? this.currentQuestionIndex,
       answers: answers ?? this.answers,
       estimatedLevel: estimatedLevel ?? this.estimatedLevel,
-      feedback: feedback ?? this.feedback,
       score: score ?? this.score,
+      feedback: feedback ?? this.feedback,
       isLoading: isLoading ?? this.isLoading,
       isFinished: isFinished ?? this.isFinished,
       hasStarted: hasStarted ?? this.hasStarted,
@@ -111,11 +112,13 @@ class PlacementState {
 }
 
 final placementProvider = StateNotifierProvider<PlacementNotifier, PlacementState>((ref) {
-  return PlacementNotifier();
+  return PlacementNotifier(ref);
 });
 
 class PlacementNotifier extends StateNotifier<PlacementState> {
-  PlacementNotifier() : super(PlacementState());
+  final Ref _ref;
+
+  PlacementNotifier(this._ref) : super(PlacementState());
 
   // Starts the test and fetches all questions in one swift request!
   Future<void> startTest() async {
@@ -195,6 +198,36 @@ class PlacementNotifier extends StateNotifier<PlacementState> {
         'total_score': score,
         'answers': allAnswers.map((a) => a.toJson()).toList(),
       });
+
+      // Trigger curriculum generation for the newly diagnosed level
+      try {
+        await Supabase.instance.client.functions.invoke(
+          'generate-curriculum',
+          body: {'levelId': finalLevel},
+        );
+
+        // Find the first lesson of the newly generated curriculum
+        final firstLesson = await Supabase.instance.client
+            .from('lessons')
+            .select('*, modules!inner(*)')
+            .eq('modules.level_id', finalLevel)
+            .eq('order_index', 0)
+            .eq('modules.order_index', 0)
+            .maybeSingle();
+
+        if (firstLesson != null) {
+          await Supabase.instance.client.from('user_lesson_progress').upsert({
+            'user_id': userId,
+            'lesson_id': firstLesson['id'],
+            'is_unlocked': true,
+          });
+        }
+      } catch (e) {
+        print('DEBUG: Curriculum generation failed: $e');
+      }
+
+      // Invalidate profiles to automatically update user profile level from unassigned -> diagnosed level
+      _ref.invalidate(profileProvider);
 
       state = state.copyWith(
         estimatedLevel: finalLevel,

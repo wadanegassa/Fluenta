@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_text_styles.dart';
@@ -15,12 +16,74 @@ class PlacementScreen extends ConsumerStatefulWidget {
   ConsumerState<PlacementScreen> createState() => _PlacementScreenState();
 }
 
-class _PlacementScreenState extends ConsumerState<PlacementScreen> {
+class _PlacementScreenState extends ConsumerState<PlacementScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _inputController = TextEditingController();
+  
+  // Speech to text members
+  late stt.SpeechToText _speech;
+  bool _speechAvailable = false;
+  bool _isListening = false;
+  late AnimationController _pulseController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat(reverse: true);
+
+    _speech = stt.SpeechToText();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      final available = await _speech.initialize(
+        onError: (val) => debugPrint('STT Error: $val'),
+        onStatus: (val) => debugPrint('STT Status: $val'),
+      );
+      if (mounted) {
+        setState(() {
+          _speechAvailable = available;
+        });
+      }
+    } catch (e) {
+      debugPrint('STT initialization error: $e');
+    }
+  }
+
+  Future<void> _startListening() async {
+    if (_speechAvailable) {
+      setState(() => _isListening = true);
+      await _speech.listen(
+        onResult: (result) {
+          if (mounted) {
+            setState(() {
+              _inputController.text = result.recognizedWords;
+            });
+          }
+        },
+      );
+    } else {
+      await _initSpeech();
+      if (!_speechAvailable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Microphone or Speech engine not ready. Please use standard typing.")),
+        );
+      }
+    }
+  }
+
+  Future<void> _stopListening() async {
+    await _speech.stop();
+    setState(() => _isListening = false);
+  }
 
   @override
   void dispose() {
     _inputController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -131,7 +194,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 💡 Beautiful Concept Focus card ("Before the question, the app understands the idea")
+            // 💡 Beautiful Concept Focus card
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(16),
@@ -190,12 +253,12 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppDimensions.s32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Spacer(),
+              const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -240,13 +303,14 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
                   ],
                 ),
               ),
-              const Spacer(),
+              const SizedBox(height: 48),
               FluentaButton(
                 text: "Begin Assessment",
                 onPressed: () {
                   notifier.startTest();
                 },
               ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -315,7 +379,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
     );
   }
 
-  // Speaking scenario response card
+  // Speaking scenario response card with Speech-to-Text capturing
   Widget _buildSpeakingInput(PlacementQuestion currentQuestion, PlacementNotifier notifier) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -334,18 +398,84 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  "Type what you would verbally say in this social situation:",
+                  _speechAvailable 
+                      ? "Tap the mic and speak your response below:"
+                      : "Type what you would verbally say in this social situation:",
                   style: AppTextStyles.labelMedium.copyWith(color: AppColors.speaking, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
           ),
         ),
+        
+        if (_speechAvailable) ...[
+          // Microhpone Recording Interface
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                if (_isListening) {
+                  _stopListening();
+                } else {
+                  _startListening();
+                }
+              },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_isListening)
+                    FadeTransition(
+                      opacity: _pulseController,
+                      child: Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.error.withOpacity(0.2),
+                        ),
+                      ),
+                    ),
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isListening ? AppColors.error : AppColors.primary,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isListening ? AppColors.error : AppColors.primary).withOpacity(0.3),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isListening ? Icons.stop : Icons.mic,
+                      color: Colors.white,
+                      size: 28,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Text(
+              _isListening ? "Listening... Speak now!" : "Tap to Speak",
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.bold,
+                color: _isListening ? AppColors.error : AppColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+
         TextField(
           controller: _inputController,
           maxLines: 4,
           decoration: InputDecoration(
-            hintText: "Write down your spoken words here...",
+            hintText: _speechAvailable ? "Your spoken words will appear here... (You can also type to edit)" : "Write down your spoken words here...",
             fillColor: Colors.white,
             filled: true,
             enabledBorder: OutlineInputBorder(
@@ -365,7 +495,7 @@ class _PlacementScreenState extends ConsumerState<PlacementScreen> {
             final text = _inputController.text.trim();
             if (text.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Please type your spoken words before submitting!")),
+                const SnackBar(content: Text("Please record or write down your words before submitting!")),
               );
               return;
             }
