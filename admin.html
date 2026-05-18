@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fluenta Admin Panel</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f9; color: #333; }
+    h1, h2 { color: #1e1e24; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    button { background: #d9534f; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #c9302c; }
+    .btn-clear { background: #f0ad4e; }
+    .btn-clear:hover { background: #ec971f; }
+    input { padding: 8px; margin-right: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
+    pre { background: #333; color: #fff; padding: 10px; border-radius: 4px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Fluenta Admin Panel</h1>
+  
+  <div class="card">
+    <h2>Delete User</h2>
+    <p>Warning: This will permanently delete the user and cascade delete their profile data if configured.</p>
+    <form id="deleteUserForm">
+      <input type="text" id="userId" placeholder="User ID (UUID)" required>
+      <button type="submit">Delete User</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Clear Table Data</h2>
+    <p>Type the exact name of the table to delete all rows from it (e.g., profiles, modules, lessons, user_lesson_progress, messages).</p>
+    <form id="clearTableForm">
+      <input type="text" id="tableName" placeholder="Table Name" required>
+      <button type="submit" class="btn-clear">Delete All Rows</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Output</h2>
+    <pre id="output">Waiting for action...</pre>
+  </div>
+
+  <script>
+    // URL of the deployed Edge Function
+    const ENDPOINT_URL = 'https://yodwucpusgvwnlolclwc.supabase.co/functions/v1/admin-panel';
+
+    async function performAction(action, payload) {
+      const out = document.getElementById('output');
+      out.textContent = 'Processing...';
+      
+      try {
+        const res = await fetch(ENDPOINT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, ...payload })
+        });
+        const data = await res.json();
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.textContent = 'Error: ' + err.message;
+      }
+    }
+
+    document.getElementById('deleteUserForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const id = document.getElementById('userId').value;
+      if (confirm('Are you absolutely sure you want to delete user ' + id + '?')) {
+        performAction('delete_user', { id });
+      }
+    });
+
+    document.getElementById('clearTableForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const table = document.getElementById('tableName').value;
+      if (confirm('Are you absolutely sure you want to DELETE ALL DATA from ' + table + '?')) {
+        performAction('clear_table', { table });
+      }
+    });
+  </script>
+</body>
+</html>
