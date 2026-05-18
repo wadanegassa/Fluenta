@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/models/lesson_content.dart';
+import '../../../core/services/offline_cache_service.dart';
 
 class LessonState {
   final int currentSection; // 0: Reading, 1: Listening, 2: Writing, 3: Speaking
@@ -9,6 +10,7 @@ class LessonState {
   final String? level;
   final String? topic;
   final bool isLoading;
+  final bool isOfflineMode;
   final Map<String, dynamic> answers;
 
   LessonState({
@@ -18,6 +20,7 @@ class LessonState {
     this.level,
     this.topic,
     this.isLoading = false,
+    this.isOfflineMode = false,
     this.answers = const {},
   });
 
@@ -28,6 +31,7 @@ class LessonState {
     String? level,
     String? topic,
     bool? isLoading,
+    bool? isOfflineMode,
     Map<String, dynamic>? answers,
   }) {
     return LessonState(
@@ -37,6 +41,7 @@ class LessonState {
       level: level ?? this.level,
       topic: topic ?? this.topic,
       isLoading: isLoading ?? this.isLoading,
+      isOfflineMode: isOfflineMode ?? this.isOfflineMode,
       answers: answers ?? this.answers,
     );
   }
@@ -57,10 +62,15 @@ class LessonNotifier extends StateNotifier<LessonState> {
     state = state.copyWith(isLoading: true);
     
     final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser!.id;
+    final cacheService = OfflineCacheService();
+    String? userId;
+    
+    try {
+      userId = supabase.auth.currentUser?.id;
+    } catch (_) {}
 
     try {
-      // 1. Fetch lesson details to provide context to AI (and ensure videoId is always loaded)
+      // 1. Fetch lesson details to provide context to AI
       final lessonData = await supabase
           .from('lessons')
           .select('*, modules(level_id)')
@@ -73,7 +83,6 @@ class LessonNotifier extends StateNotifier<LessonState> {
       final videoId = lessonData['youtube_video_id'];
       final videoTitle = lessonData['youtube_video_title'];
 
-      // Update state with details early
       state = state.copyWith(
         youtubeVideoId: videoId,
         level: level,
@@ -81,50 +90,77 @@ class LessonNotifier extends StateNotifier<LessonState> {
       );
 
       // 2. Try to fetch existing content
-      final existingContent = await supabase
-          .from('lesson_content')
-          .select()
-          .eq('lesson_id', lessonId)
-          .eq('user_id', userId)
-          .maybeSingle();
+      Map<String, dynamic>? generatedJson;
+      if (userId != null) {
+        final existingContent = await supabase
+            .from('lesson_content')
+            .select()
+            .eq('lesson_id', lessonId)
+            .eq('user_id', userId)
+            .maybeSingle();
 
-      if (existingContent != null) {
-        state = state.copyWith(
-          content: LessonContent.fromJson(existingContent),
-          isLoading: false,
-        );
-        return;
+        if (existingContent != null) {
+          generatedJson = existingContent;
+        }
       }
 
-      // 3. Generate content via AI
-      final response = await supabase.functions.invoke('generate-lesson', body: {
+      if (generatedJson == null) {
+        // 3. Generate content via AI
+        final response = await supabase.functions.invoke('generate-lesson', body: {
+          'level': level,
+          'topic': topic,
+          'focusSkill': focusSkill,
+          'youtubeVideoTitle': videoTitle,
+        });
+
+        generatedJson = response.data;
+        
+        if (generatedJson == null || generatedJson['error'] != null) {
+          throw Exception(generatedJson?['error'] ?? 'No content returned from AI');
+        }
+        
+        // 4. Save generated content to remote DB
+        if (userId != null) {
+          await supabase.from('lesson_content').insert({
+            'lesson_id': lessonId,
+            'user_id': userId,
+            ...generatedJson,
+          });
+        }
+      }
+
+      // 5. Store successfully fetched lesson inside device local preferences cache
+      await cacheService.cacheLesson(lessonId, {
+        'youtube_video_id': videoId,
         'level': level,
         'topic': topic,
-        'focusSkill': focusSkill,
-        'youtubeVideoTitle': videoTitle,
-      });
-
-      final generatedJson = response.data;
-      
-      if (generatedJson == null || generatedJson['error'] != null) {
-        throw Exception(generatedJson?['error'] ?? 'No content returned from AI');
-      }
-      
-      // 4. Save generated content
-      await supabase.from('lesson_content').insert({
-        'lesson_id': lessonId,
-        'user_id': userId,
-        ...generatedJson,
-      });
+      }, generatedJson);
 
       state = state.copyWith(
         content: LessonContent.fromJson(generatedJson),
         isLoading: false,
+        isOfflineMode: false,
       );
     } catch (e, stack) {
-      print('DEBUG: Lesson load error: $e');
-      print('DEBUG: Stack trace: $stack');
-      state = state.copyWith(isLoading: false);
+      print('DEBUG: Remote lesson load error: $e. Attempting local offline cache recovery...');
+      
+      final cachedMap = await cacheService.getCachedLesson(lessonId);
+      if (cachedMap != null) {
+        final cachedLessonData = cachedMap['lessonData'] as Map<String, dynamic>;
+        final cachedGeneratedJson = cachedMap['generatedJson'] as Map<String, dynamic>;
+
+        state = state.copyWith(
+          youtubeVideoId: cachedLessonData['youtube_video_id'],
+          level: cachedLessonData['level'],
+          topic: cachedLessonData['topic'],
+          content: LessonContent.fromJson(cachedGeneratedJson),
+          isLoading: false,
+          isOfflineMode: true,
+        );
+        print('DEBUG: Lesson successfully loaded from local offline storage!');
+      } else {
+        state = state.copyWith(isLoading: false);
+      }
     }
   }
 

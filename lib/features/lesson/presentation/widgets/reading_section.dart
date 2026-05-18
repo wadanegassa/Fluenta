@@ -105,7 +105,7 @@ class ReadingSection extends ConsumerWidget {
         children: [
           Text(q.question, style: AppTextStyles.bodyLarge.copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
-          if (q.type == 'mcq')
+          if (q.type == 'mcq' && q.options != null)
             ...q.options!.map((option) {
               final isSelected = userAnswer == option;
               final isCorrect = option == q.answer;
@@ -142,7 +142,25 @@ class ReadingSection extends ConsumerWidget {
                   ),
                 ),
               );
-            }).toList(),
+            }).toList()
+          else ...[
+            TextField(
+              onChanged: (val) => ref.read(lessonNotifierProvider(lessonId).notifier).saveAnswer(q.id, val),
+              decoration: InputDecoration(
+                hintText: "Type your response here...",
+                fillColor: Colors.white,
+                filled: true,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                  borderSide: BorderSide(color: AppColors.border, width: 1.5),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppDimensions.radiusMedium),
+                  borderSide: BorderSide(color: AppColors.primary, width: 2),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

@@ -70,16 +70,27 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
     final currentSection = ref.read(lessonNotifierProvider(widget.lessonId)).currentSection;
     
     if (!_canProceed(currentSection)) {
+      String message = "🔒 Please complete all exercises in this section to proceed!";
+      if (currentSection == 0) {
+        message = "🔒 Scroll down and answer all 3 reading questions to unlock the next section!";
+      } else if (currentSection == 1) {
+        message = "🔒 Scroll down, write what you understand, and answer all listening questions!";
+      } else if (currentSection == 2) {
+        message = "🔒 Please input your writing paragraph response before proceeding!";
+      } else if (currentSection == 3) {
+        message = "🔒 Please tap the microphone and record your response before proceeding!";
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              Icon(Icons.lock_outline, color: Colors.white),
-              SizedBox(width: 12),
+              const Icon(Icons.lock_outline, color: Colors.white),
+              const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  "🔒 Section Locked! Please complete all exercises in this section to unlock the next course step.",
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  message,
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -118,7 +129,37 @@ class _LessonScreenState extends ConsumerState<LessonScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: Text("Lesson Progress", style: AppTextStyles.h2),
+        title: Row(
+          children: [
+            Text("Lesson Progress", style: AppTextStyles.h2),
+            if (state.isOfflineMode) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.accent.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.bolt, size: 12, color: AppColors.accent),
+                    const SizedBox(width: 2),
+                    Text(
+                      "OFFLINE",
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.accent,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
