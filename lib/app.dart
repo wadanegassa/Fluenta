@@ -3,15 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
-class FluentaApp extends ConsumerWidget {
-  const FluentaApp({super.key});
+class VoceApp extends ConsumerWidget {
+  const VoceApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
-      title: 'Fluenta',
+      title: 'Voce',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
