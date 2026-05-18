@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../auth/data/auth_provider.dart';
+import '../../profile/data/profile_provider.dart';
 
 class LessonProgress {
   final String lessonId;
@@ -37,8 +38,9 @@ final userProgressProvider = StreamProvider<List<LessonProgress>>((ref) {
 
 class ProgressNotifier extends StateNotifier<void> {
   final SupabaseClient _supabase;
+  final Ref _ref;
 
-  ProgressNotifier(this._supabase) : super(null);
+  ProgressNotifier(this._supabase, this._ref) : super(null);
 
   Future<void> unlockNextLesson(String currentLessonId) async {
     final userId = _supabase.auth.currentUser!.id;
@@ -52,11 +54,14 @@ class ProgressNotifier extends StateNotifier<void> {
       'mastered_at': DateTime.now().toIso8601String(),
     });
 
-    // 2. Update Profile Stats (lessons mastered)
+    // 2. Update Profile Stats (lessons mastered & streak days!)
     final profile = await _supabase.from('profiles').select().eq('id', userId).single();
     await _supabase.from('profiles').update({
       'total_lessons_mastered': (profile['total_lessons_mastered'] ?? 0) + 1,
+      'streak_days': (profile['streak_days'] ?? 0) + 1,
     }).eq('id', userId);
+
+    _ref.invalidate(profileProvider);
 
     // 3. Find next lesson
     final currentLesson = await _supabase
@@ -132,5 +137,5 @@ class ProgressNotifier extends StateNotifier<void> {
 
 final progressActionProvider = Provider((ref) {
   final supabase = ref.watch(supabaseProvider);
-  return ProgressNotifier(supabase);
+  return ProgressNotifier(supabase, ref);
 });

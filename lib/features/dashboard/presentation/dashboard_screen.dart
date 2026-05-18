@@ -6,6 +6,7 @@ import '../../../core/theme/app_dimensions.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../../../shared/widgets/loading_shimmer.dart';
 import '../../../shared/widgets/skill_chip.dart';
+import '../../../shared/widgets/fluenta_button.dart';
 import '../../../shared/models/profile.dart';
 import '../../profile/data/profile_provider.dart';
 import '../data/lessons_provider.dart';
@@ -24,6 +25,11 @@ class DashboardScreen extends ConsumerWidget {
           data: (p) {
             final profile = p;
             if (profile == null) return const Center(child: Text("No profile found"));
+            
+            if (profile.level == 'unassigned') {
+              return _buildPlacementReminder(context);
+            }
+            
             return _buildContent(context, profile);
           },
           loading: () => _buildLoading(context),
@@ -291,6 +297,43 @@ class DashboardScreen extends ConsumerWidget {
           LoadingShimmer.card(),
           const SizedBox(height: 32),
           LoadingShimmer.card(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlacementReminder(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(AppDimensions.s32),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.lock_person_outlined, size: 80, color: AppColors.primary),
+          ),
+          const SizedBox(height: 32),
+          Text(
+            "Diagnostic Needed",
+            style: AppTextStyles.display1,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "To unlock your customized daily curriculum, you must first complete the 10-question placement test.",
+            style: AppTextStyles.bodyLarge.copyWith(color: AppColors.textSecondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 48),
+          FluentaButton(
+            text: "Start Placement Test",
+            onPressed: () => context.go('/placement'),
+          ),
         ],
       ),
     );
